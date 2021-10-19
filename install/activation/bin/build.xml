@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Copyright (c) 2021 Oracle and/or its affiliates. All rights reserved.
+
+    This program and the accompanying materials are made available under the
+    terms of the Eclipse Public License v. 2.0, which is available at
+    http://www.eclipse.org/legal/epl-2.0.
+
+    This Source Code may also be made available under the following Secondary
+    Licenses when the conditions for such availability set forth in the
+    Eclipse Public License v. 2.0 are satisfied: GNU General Public License,
+    version 2 with the GNU Classpath Exception, which is available at
+    https://www.gnu.org/software/classpath/license.html.
+
+    SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
+
+-->
+
+<!--
+$Id$
+-->
+
+<project name="TS top level" default="usage">
+
+    <import file="xml/ts.top.import.xml" optional="true"/>
+    <import file="../../../bin/xml/ts.top.import.xml" optional="true"/>
+
+    <property name="all.test.dir" value="com/sun/ts/tests/activation"/>
+
+    <!-- run.pluggability - runs the SPI plugin tests -->
+    <target name="run.pluggability" description="Runs the pluggability tests to verify SPI in batch mode">
+        <echo message="Running pluggability tests to verify spi plugin mechanism to our own activationrovider class ..."/>
+        <antcall target="enable.alternate.activation.provider" />
+        <trycatch>
+            <try>
+		<!-- Override previous list of tests to execute. -->
+		<var name="tests.string" value="com/sun/ts/tests/activation/pluggability"/>
+                <ant antfile="build.xml" dir="${ts.home}/src/com/sun/ts/tests/activation/pluggability" target="runclient" /> 
+            </try>
+            <catch>
+                <echo message="Ensure disable.alternate.activation.provider is called"/>
+            </catch>
+            <finally>
+                <antcall target="disable.alternate.activation.provider" />
+            </finally>
+        </trycatch>
+    </target> 
+
+    <!-- enable.alternate.activation.provider
+         Enable our activationrovider by ensuring our service class is in classpath before RI jars.
+    -->
+    <target name="enable.alternate.activation.provider" depends="translatepath" description="Enable the alternate activation provider for the pluggability tests">
+	<echo message="Enable our alternate activationrovider class for the pluggability tests ..."/>
+
+        <replaceregexp file="${bin.dir}/ts.jte"
+	    match="activation.alt.provider.classes=.*"
+	    replace="activation.alt.provider.classes=$${ts.home}/lib/activation_alternate_provider.jar" />
+
+    </target> 
+
+    <!-- disable.alternate.activation.provider
+         Disable our activationrovider by removing our service class from classpath.
+    -->
+    <target name="disable.alternate.activation.provider" description="Disable the alternate activation provider for the pluggability tests">
+	<echo message="Disable our alternate activationrovider class for the pluggability tests ..."/>
+
+        <replaceregexp file="${bin.dir}/ts.jte"
+	    match="activation.alt.provider.classes=.*"
+	    replace="activation.alt.provider.classes=activation.alt.provider.classes" />
+
+    </target>
+
+    <target name="run.report" >
+	<echo message="Running JavaTest report followed by a summary report"/>
+	<antcall target="report"/>
+        <report.summary dirs="com/sun/ts/tests/activation"/>
+    </target>
+
+    <target name="translatepath">
+        <translatepath propname="ts.classpath" />
+        <translatepath propname="bin.dir" />
+    </target>
+
+    <!-- **************************************************************** -->
+    <!-- Tasks for managing ts specific jar  -->
+    <!-- ts specific jar (in this case activationtck.jar) will be created in 
+		ts.home/lib. -->
+
+    <target name="tslib.clean" depends="translatepath">
+         <delete failonerror="false">
+         <fileset dir="${class.dir}">
+                <include name="${lib.pkg.dir}/deliverable/tck/**" />
+                <include name="${lib.pkg.dir}/deliverable/activation/**" />
+                <include name="${lib.pkg.dir}/implementation/sun/common/**" />
+        </fileset>
+        </delete>
+        <delete failonerror="false" file="${ts.home}/lib/${tslib.name}"/>
+    </target>
+
+    <target name="tslib.compile" depends="tslib.clean">
+        <ts.javac includes="${lib.pkg.dir}/deliverable/tck/**
+                            ${lib.pkg.dir}/deliverable/activation/**
+                            ${lib.pkg.dir}/implementation/sun/common/SunRIURL.java">
+            <classpath>
+                <pathelement path="${ts.harness.classpath}" />
+            </classpath>
+        </ts.javac>
+    </target>
+
+
+    <target name="tslib" depends="tslib.compile">
+        <tstamp/>
+	   <ts.lib.jar>
+            <include name="${lib.pkg.dir}/deliverable/tck/**" />
+            <include name="${lib.pkg.dir}/deliverable/activation/**" />
+            <include name="${lib.pkg.dir}/implementation/sun/common/SunRIURL.class" />
+        </ts.lib.jar>
+    </target>
+
+    <target name="jte.cleanup">
+        <props.sanitizer file="${bin.dir}/ts.jte" quiet="true">
+            <property name="activation.classes" value="" />
+            <property name="activation.alt.provider.classes" value="activation.alt.provider.classes" />
+        </props.sanitizer>
+    </target>
+
+</project>
+
